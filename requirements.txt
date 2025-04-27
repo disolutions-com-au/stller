@@ -1,5 +1,3 @@
-numpy
-numpy-stl
-trimesh
-pyglet
-python-utils 
+pyvista>=0.43.0
+numpy>=1.20.0
+vtk>=9.2.0 
