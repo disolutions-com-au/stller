@@ -7,9 +7,155 @@ import pyvista as pv
 import numpy as np
 import warnings
 import vtk
+import logging
+import colorsys
+import random
+
+# Set up basic logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 # Filter PyVista warnings if needed
 warnings.filterwarnings("ignore", category=pv.core.errors.PyVistaDeprecationWarning)
+
+def select_faces_by_region_growing(mesh, seed_face_id, angle_tolerance=15.0):
+    """
+    Select faces from a mesh by region growing from a seed face based on angle tolerance.
+    
+    Parameters:
+    -----------
+    mesh : pyvista.PolyData
+        The mesh to select faces from
+    seed_face_id : int
+        The ID of the face to start selection from
+    angle_tolerance : float, optional
+        The maximum angle (in degrees) between adjacent face normals to be included, default 15.0
+    
+    Returns:
+    --------
+    set
+        A set of face IDs that are connected to the seed face and within angle tolerance
+    """
+    logger.info(f"Starting region growing from face {seed_face_id} with angle tolerance {angle_tolerance}°")
+    
+    # Ensure we have cell normals
+    mesh.compute_normals(cell_normals=True, point_normals=True, inplace=True)
+    print(f"DEBUG: Mesh has {mesh.n_cells} cells and {mesh.n_points} points")
+    
+    # Get face normals
+    face_normals = mesh.cell_normals
+    seed_normal = face_normals[seed_face_id]
+    print(f"DEBUG: Seed face normal: {seed_normal}")
+    
+    # Build cell neighbors connectivity
+    print(f"DEBUG: Building cell connectivity...")
+    
+    # Initialize a dictionary to store connectivity
+    cell_neighbors = {}
+    
+    # For each cell, find the points it contains
+    cell_to_points = {}
+    # For each point, find the cells it's part of
+    point_to_cells = {}
+    
+    # Build the mappings
+    for cell_id in range(mesh.n_cells):
+        cell = mesh.get_cell(cell_id)
+        point_ids = cell.point_ids
+        cell_to_points[cell_id] = point_ids
+        
+        # Update point to cells mapping
+        for pt_id in point_ids:
+            if pt_id not in point_to_cells:
+                point_to_cells[pt_id] = set()
+            point_to_cells[pt_id].add(cell_id)
+    
+    # Now find neighbors for each cell (cells that share points)
+    for cell_id in range(mesh.n_cells):
+        if cell_id not in cell_neighbors:
+            cell_neighbors[cell_id] = set()
+            
+        # Get points of this cell
+        points = cell_to_points[cell_id]
+        
+        # Find all cells that share points with this cell
+        for pt_id in points:
+            for neighbor_id in point_to_cells.get(pt_id, set()):
+                if neighbor_id != cell_id:
+                    cell_neighbors[cell_id].add(neighbor_id)
+    
+    # Convert sets to lists for consistent output
+    for cell_id in cell_neighbors:
+        cell_neighbors[cell_id] = list(cell_neighbors[cell_id])
+    
+    # Debug: print seed face neighbors
+    print(f"DEBUG: Seed face {seed_face_id} has {len(cell_neighbors[seed_face_id])} neighbors: {cell_neighbors[seed_face_id]}")
+    
+    # Debug: print angles with seed face for all neighbors
+    for neighbor_id in cell_neighbors[seed_face_id]:
+        neighbor_normal = face_normals[neighbor_id]
+        dot_product = np.dot(seed_normal, neighbor_normal)
+        # Handle floating point errors in dot product
+        dot_product = np.clip(dot_product, -1.0, 1.0)
+        angle = np.degrees(np.arccos(dot_product))
+        print(f"DEBUG: Neighbor {neighbor_id} has normal {neighbor_normal}, angle with seed: {angle:.2f}°")
+    
+    # Initialize the selected faces with the seed face
+    selected_faces = {seed_face_id}
+    candidates = set(cell_neighbors[seed_face_id])
+    
+    # Region growing
+    print(f"DEBUG: Starting region growing with {len(candidates)} initial candidates")
+    iteration = 0
+    
+    while candidates:
+        iteration += 1
+        print(f"DEBUG: Iteration {iteration}, {len(candidates)} candidates")
+        new_candidates = set()
+        
+        for candidate_id in candidates:
+            # Skip if already selected
+            if candidate_id in selected_faces:
+                continue
+            
+            # Calculate the angle between the candidate normal and seed normal
+            candidate_normal = face_normals[candidate_id]
+            dot_product = np.dot(seed_normal, candidate_normal)
+            # Handle floating point errors in dot product
+            dot_product = np.clip(dot_product, -1.0, 1.0)
+            angle = np.degrees(np.arccos(dot_product))
+            
+            print(f"DEBUG: Candidate {candidate_id} has angle {angle:.2f}° with seed")
+            
+            # If within tolerance, add to selection and consider its neighbors
+            if angle <= angle_tolerance:
+                selected_faces.add(candidate_id)
+                print(f"DEBUG: Added candidate {candidate_id} to selection (angle: {angle:.2f}°)")
+                for neighbor_id in cell_neighbors[candidate_id]:
+                    if neighbor_id not in selected_faces and neighbor_id not in candidates:
+                        new_candidates.add(neighbor_id)
+        
+        # Update candidates for next iteration
+        candidates = new_candidates
+        print(f"DEBUG: Found {len(new_candidates)} new candidates for next iteration")
+    
+    print(f"DEBUG: Region growing completed with {len(selected_faces)} faces selected")
+    logger.info(f"Region growing selected {len(selected_faces)} faces")
+    return selected_faces
+
+def generate_distinct_colors(n):
+    """Generate n visually distinct colors"""
+    colors = []
+    for i in range(n):
+        # Use golden ratio to get evenly distributed hues
+        hue = (i * 0.618033988749895) % 1.0
+        # Fixed saturation and value for vibrant colors
+        saturation = 0.8
+        value = 0.9
+        # Convert HSV to RGB
+        rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+        colors.append(rgb)
+    return colors
 
 def display_stl(filepath, show_edges=True, color='lightblue'):
     """
@@ -41,6 +187,9 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
     print(f"  - Surface area: {mesh.area:.2f}")
     print(f"  - Volume: {mesh.volume:.2f}")
     
+    # Ensure we have normals calculated
+    mesh.compute_normals(inplace=True)
+    
     # Create a plotter
     plotter = pv.Plotter()
     
@@ -62,7 +211,15 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
     
     # Create a selection state
     selection_mode = False
-    selected_faces = set()
+    angle_tolerance = 15.0  # Default angle tolerance for region growing
+    region_growing_mode = False
+    
+    # MultiSelect: Track multiple selection groups with different colors
+    selection_groups = []  # List of sets, each set is a group of selected faces
+    current_group = 0      # Index of the current active group
+    
+    # Generate some initial distinct colors for groups
+    group_colors = generate_distinct_colors(10)
     
     # Create cell picker for selection
     cell_picker = vtk.vtkCellPicker()
@@ -71,7 +228,10 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
     # Update the status message
     def update_status_message():
         if selection_mode:
-            mode_txt = "SELECTION MODE: Click faces to select them"
+            if region_growing_mode:
+                mode_txt = f"REGION SELECTION MODE: Click faces to select regions (angle: {angle_tolerance:.1f}°)"
+            else:
+                mode_txt = "SELECTION MODE: Click faces to select them"
         else:
             mode_txt = "MOVEMENT MODE: Navigate the model"
             
@@ -83,10 +243,21 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
             name='mode_status'
         )
         
-        # Update selection count if any faces selected
-        if selected_faces:
+        # Update selection counts for all groups
+        total_selected = sum(len(group) for group in selection_groups)
+        if total_selected > 0:
+            # Create status text for all groups
+            group_info = []
+            for i, group in enumerate(selection_groups):
+                if len(group) > 0:
+                    group_info.append(f"Group {i+1}: {len(group)} faces")
+            
+            # Add highlight for current group
+            group_text = " | ".join(group_info)
+            current_txt = f"Current: Group {current_group+1} | Total: {total_selected} faces"
+            
             plotter.add_text(
-                f"Selected: {len(selected_faces)} faces",
+                f"{current_txt}\n{group_text}",
                 position='upper_right',
                 font_size=12,
                 name='selection_count'
@@ -97,7 +268,7 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
     
     # Toggle between movement and selection modes
     def toggle_mode():
-        nonlocal selection_mode
+        nonlocal selection_mode, region_growing_mode
         selection_mode = not selection_mode
         
         # Toggle cell picking based on mode
@@ -106,10 +277,94 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
             plotter.enable_cell_picking(through=False, callback=cell_picked, show_message=False)
             print(f"DEBUG: Switched to selection mode. Cell picking enabled.")
         else:
-            # Re-enable normal camera interactor
-            plotter.disable_picking()
-            print(f"DEBUG: Switched to movement mode. Cell picking disabled.")
+            # Call our force movement function to ensure consistent behavior
+            force_movement_mode()
         
+        update_status_message()
+        plotter.render()
+    
+    # Toggle region growing mode
+    def toggle_region_growing():
+        nonlocal region_growing_mode
+        region_growing_mode = not region_growing_mode
+        print(f"DEBUG: Region growing mode {'enabled' if region_growing_mode else 'disabled'}")
+        update_status_message()
+        plotter.render()
+    
+    # Create a new selection group
+    def create_new_group():
+        nonlocal current_group, selection_groups
+        
+        # If the current group is empty, don't create a new one
+        if len(selection_groups) == 0 or len(selection_groups[current_group]) > 0:
+            # Add a new empty group
+            selection_groups.append(set())
+            current_group = len(selection_groups) - 1
+            
+            # Generate more colors if needed
+            if current_group >= len(group_colors):
+                group_colors.extend(generate_distinct_colors(5))
+                
+            print(f"DEBUG: Created new selection group {current_group+1}")
+            update_status_message()
+            update_selection_display()
+            plotter.render()
+    
+    # Switch to a different selection group
+    def next_group():
+        nonlocal current_group
+        if len(selection_groups) > 0:
+            current_group = (current_group + 1) % len(selection_groups)
+            print(f"DEBUG: Switched to selection group {current_group+1}")
+            update_status_message()
+            plotter.render()
+    
+    # Additional function to force movement mode
+    def force_movement_mode(*args):
+        nonlocal selection_mode, region_growing_mode
+        # Only take action if we're in selection mode
+        selection_mode = False
+        region_growing_mode = False
+        
+        # Force disable picking
+        plotter.disable_picking()
+        
+        # Use multiple approaches to reset the camera interactor style
+        print("DEBUG: Attempting to reset interaction style")
+        
+        # Method 1: Use camera reset methods
+        try:
+            plotter.reset_camera_clipping_range()
+            # Try to directly set the interactor style
+            if hasattr(plotter, 'iren') and hasattr(plotter.iren, 'interactor_style'):
+                plotter.iren.interactor_style.set_style_to_trackball_camera()
+            print("DEBUG: Reset camera properties")
+        except Exception as e:
+            print(f"DEBUG: Error with method 1: {e}")
+        
+        # Method 2: Reset key events directly
+        try:
+            plotter.reset_key_events()
+            plotter.add_key_event('m', toggle_mode_key)
+            plotter.add_key_event('r', toggle_region_key)
+            plotter.add_key_event('g', create_new_group_key)
+            plotter.add_key_event('n', next_group_key)
+            print("DEBUG: Reset key events")
+        except Exception as e:
+            print(f"DEBUG: Error with method 2: {e}")
+        
+        # Method 3: Directly set camera properties
+        try:
+            # Force the interactor to switch back to camera interaction
+            plotter.enable_trackball_style()
+            print("DEBUG: Enabled trackball style")
+        except Exception as e:
+            print(f"DEBUG: Error with method 3: {e}")
+        
+        # Print overall status
+        print(f"DEBUG: Forced switch to movement mode")
+        
+        # Update UI
         update_status_message()
         plotter.render()
     
@@ -133,13 +388,100 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
         name='toggle_text'
     )
     
+    # Add a button to toggle region growing
+    plotter.add_checkbox_button_widget(
+        toggle_region_growing,
+        value=False,
+        position=(10, 100),
+        size=30,
+        border_size=1,
+        color_on='blue',
+        color_off='grey',
+        background_color='white'
+    )
+    
+    # Add text next to the region growing checkbox
+    plotter.add_text(
+        "Toggle Region Growing",
+        position=(50, 100),
+        font_size=12,
+        name='region_text'
+    )
+    
+    # Add a button for new selection group
+    plotter.add_checkbox_button_widget(
+        create_new_group,
+        value=False,
+        position=(10, 130),
+        size=30,
+        border_size=1,
+        color_on='orange',
+        color_off='grey',
+        background_color='white'
+    )
+    
+    # Add text next to the new group button
+    plotter.add_text(
+        "Create New Group",
+        position=(50, 130),
+        font_size=12,
+        name='new_group_text'
+    )
+    
+    # Add a button to switch between groups
+    plotter.add_checkbox_button_widget(
+        next_group,
+        value=False,
+        position=(10, 160),
+        size=30,
+        border_size=1,
+        color_on='purple',
+        color_off='grey',
+        background_color='white'
+    )
+    
+    # Add text next to the next group button
+    plotter.add_text(
+        "Next Group",
+        position=(50, 160),
+        font_size=12,
+        name='next_group_text'
+    )
+    
+    # Add angle tolerance slider
+    def update_angle_tolerance(value):
+        nonlocal angle_tolerance
+        angle_tolerance = value
+        plotter.add_text(
+            f"Angle Tolerance: {angle_tolerance:.1f}°",
+            position=(50, 190),
+            font_size=12,
+            name='angle_text'
+        )
+        print(f"DEBUG: Angle tolerance set to {angle_tolerance:.1f}°")
+        update_status_message()
+    
+    plotter.add_slider_widget(
+        update_angle_tolerance,
+        [1.0, 90.0],
+        value=15.0,
+        title="Angle Tolerance",
+        pointa=(0.02, 0.25),
+        pointb=(0.18, 0.25),
+        style='modern'
+    )
+    
     # Add a button to clear selection
     def clear_selection():
-        nonlocal selected_faces
-        selected_faces = set()
+        nonlocal selection_groups, current_group
+        
+        # Clear only the current group
+        if len(selection_groups) > current_group:
+            selection_groups[current_group] = set()
+            print(f"Cleared selection group {current_group+1}")
+        
         update_selection_display()
         update_status_message()
-        print("Selection cleared")
     
     # Add a clear selection button
     plotter.add_checkbox_button_widget(
@@ -155,59 +497,122 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
     
     # Add text next to the clear button
     plotter.add_text(
-        "Clear Selection",
+        "Clear Current Group",
         position=(50, 70),
         font_size=12,
         name='clear_text'
     )
     
+    # Add a button for force movement mode
+    plotter.add_checkbox_button_widget(
+        force_movement_mode,
+        value=False,
+        position=(150, 40),
+        size=30,
+        border_size=1,
+        color_on='yellow',
+        color_off='grey',
+        background_color='white'
+    )
+    
+    # Add text next to the force movement button
+    plotter.add_text(
+        "Force Movement Mode",
+        position=(190, 40),
+        font_size=12,
+        name='force_move_text'
+    )
+    
     # Callback for when a cell is picked
     def cell_picked(cell_id):
+        nonlocal selection_mode, region_growing_mode, current_group
         print(f"DEBUG: Cell picked callback called with cell_id={cell_id}")
         
         if not selection_mode:
             print(f"DEBUG: Not in selection mode, ignoring pick")
             return
             
-        if cell_id < 0:
+        # Check if we received a mesh/grid object instead of an integer cell ID
+        if hasattr(cell_id, 'n_cells'):
+            print(f"DEBUG: Received a mesh object instead of cell ID")
+            # Extract information from the mesh if possible
+            if cell_id.n_cells > 0:
+                # We could try to extract the cell ID from the mesh, but for safety
+                # we'll just return since we received unexpected data format
+                print(f"DEBUG: Unable to determine specific cell ID from mesh")
+                return
+            else:
+                print(f"DEBUG: Invalid pick or empty selection, ignoring")
+                return
+        
+        # Check for invalid cell ID (negative)
+        if isinstance(cell_id, int) and cell_id < 0:
             print(f"DEBUG: Invalid cell ID {cell_id}, ignoring")
             return
+        
+        # Make sure we have at least one selection group
+        if len(selection_groups) == 0:
+            selection_groups.append(set())
+            current_group = 0
+            print(f"DEBUG: Created initial selection group since none existed")
+        
+        if region_growing_mode:
+            # Use region growing to select connected faces
+            print(f"DEBUG: Starting region growing from cell {cell_id}")
+            new_selection = select_faces_by_region_growing(mesh, cell_id, angle_tolerance)
             
-        if cell_id in selected_faces:
-            # If already selected, deselect it
-            selected_faces.remove(cell_id)
-            print(f"Face {cell_id} deselected")
+            # Update the current selection group
+            for face_id in new_selection:
+                selection_groups[current_group].add(face_id)
+            
+            print(f"Region growing selected {len(new_selection)} faces based on face {cell_id}")
         else:
-            # Otherwise, add to selection
-            selected_faces.add(cell_id)
-            print(f"Face {cell_id} selected")
+            # Single face selection mode
+            # Check if the face is in any group
+            in_current_group = cell_id in selection_groups[current_group]
+            
+            if in_current_group:
+                # If already in current group, deselect it
+                selection_groups[current_group].remove(cell_id)
+                print(f"Face {cell_id} removed from group {current_group+1}")
+            else:
+                # Otherwise, add to current group
+                selection_groups[current_group].add(cell_id)
+                print(f"Face {cell_id} added to group {current_group+1}")
         
         update_selection_display()
         update_status_message()
     
     # Update the display to highlight selected faces
     def update_selection_display():
-        # Remove previous selection actor if it exists
-        if 'selected_faces' in plotter.actors:
-            plotter.remove_actor('selected_faces')
+        # Remove all previous selection actors
+        for i in range(len(selection_groups)):
+            actor_name = f'selected_faces_{i}'
+            if actor_name in plotter.actors:
+                plotter.remove_actor(actor_name)
         
-        if not selected_faces:
-            return
+        # Create new actors for each selection group
+        for i, group in enumerate(selection_groups):
+            if len(group) == 0:
+                continue
+                
+            # Create a mask for this group
+            mask = np.zeros(mesh.n_cells, dtype=bool)
+            mask[list(group)] = True
+            selection = mesh.extract_cells(mask)
             
-        # Create a new selection mesh
-        mask = np.zeros(mesh.n_cells, dtype=bool)
-        mask[list(selected_faces)] = True
-        selection = mesh.extract_cells(mask)
-        
-        # Add the selection with a distinct appearance
-        plotter.add_mesh(
-            selection,
-            color='red',
-            opacity=0.8,
-            show_edges=True,
-            line_width=2,
-            name='selected_faces'
-        )
+            # Get the color for this group
+            color = group_colors[i % len(group_colors)]
+            
+            # Add a distinct actor for this group
+            plotter.add_mesh(
+                selection,
+                color=color,
+                opacity=0.8,
+                show_edges=True,
+                line_width=2,
+                name=f'selected_faces_{i}'
+            )
     
     # Alternative direct picking method
     def setup_mouse_callback():
@@ -226,17 +631,8 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
             print(f"DEBUG: Picked cell_id={cell_id}")
             
             if cell_id != -1:
-                if cell_id in selected_faces:
-                    # If already selected, deselect it
-                    selected_faces.remove(cell_id)
-                    print(f"Face {cell_id} deselected")
-                else:
-                    # Otherwise, add to selection
-                    selected_faces.add(cell_id)
-                    print(f"Face {cell_id} selected")
-                
-                update_selection_display()
-                update_status_message()
+                # Call the same cell_picked function we use for the built-in picker
+                cell_picked(cell_id)
         
         plotter.track_click_position(callback=on_left_click, side="left", viewport=True)
     
@@ -245,7 +641,22 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
         toggle_mode()
         return
     
+    def toggle_region_key():
+        toggle_region_growing()
+        return
+    
+    def create_new_group_key():
+        create_new_group()
+        return
+    
+    def next_group_key():
+        next_group()
+        return
+        
     plotter.add_key_event('m', toggle_mode_key)
+    plotter.add_key_event('r', toggle_region_key)
+    plotter.add_key_event('g', create_new_group_key)
+    plotter.add_key_event('n', next_group_key)
     
     # Add information about controls
     plotter.add_text(
@@ -253,15 +664,18 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
         "Left-click + drag: Rotate\n"
         "Right-click + drag: Zoom\n"
         "Middle-click + drag: Pan\n"
-        "r: Reset camera\n"
-        "s: Take screenshot\n"
-        "m: Toggle selection mode",
+        "m: Toggle selection mode\n"
+        "r: Toggle region growing\n"
+        "g: Create new group\n"
+        "n: Next group\n"
+        "c: Reset camera",
         position='lower_left', 
         font_size=10,
         name='controls'
     )
     
-    # Initialize status message
+    # Initialize state and UI
+    create_new_group()  # Create the first group
     update_status_message()
     
     # Set up the custom mouse callback for more reliable picking
@@ -270,10 +684,13 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
     # Show the mesh
     print("Displaying mesh. Close the window to exit.")
     print("Press 'm' to toggle selection mode")
+    print("Press 'r' to toggle region growing mode")
+    print("Press 'g' to create a new selection group")
+    print("Press 'n' to switch to the next selection group")
     plotter.show()
     
     # Return selected faces when the window is closed
-    return selected_faces
+    return selection_groups
 
 def main():
     # Set up command line arguments
@@ -299,10 +716,16 @@ def main():
             sys.exit(0)
     
     # Display the STL file - invert no_edges for show_edges
-    selected_faces = display_stl(args.filepath, show_edges=not args.no_edges, color=args.color)
+    selection_groups = display_stl(args.filepath, show_edges=not args.no_edges, color=args.color)
     
-    if selected_faces:
-        print(f"Selected faces: {selected_faces}")
+    # Report on selection groups
+    if selection_groups:
+        non_empty_groups = [group for group in selection_groups if len(group) > 0]
+        print(f"Total selection groups: {len(non_empty_groups)} non-empty groups")
+        
+        for i, group in enumerate(selection_groups):
+            if len(group) > 0:
+                print(f"Group {i+1}: {len(group)} faces")
 
 if __name__ == "__main__":
     main() 
