@@ -1,15 +1,23 @@
 # Stller - STL File Viewer
+STLLER is a Python-based STL file viewer with advanced face selection capabilities. The tool allows users to:
 
-A simple Python tool for visualizing STL files using PyVista with face selection capabilities.
+-View 3D STL models with detailed information (points, faces, area, volume)
+-Select faces using two modes:
+    -Direct selection of individual faces
+    -Region growing selection (picks connected faces with similar normals)
+-Organize selections into multiple color-coded groups
+-Export selections to new STL files
 
-## Features
+The tool uses PyVista for 3D visualization and VTK for the underlying mesh operations. It provides both a graphical interface with interactive controls and a command-line interface with various options.
 
-- Open and visualize STL files in 3D
-- Display mesh information (number of points, faces, surface area, and volume)
-- Interactive 3D viewer with rotation, zoom, and panning
-- Face selection mode with UI controls
-- Command-line interface with customization options
-- Handles deprecation warnings for latest PyVista compatibility
+To use STLLER, you need Python 3.7+ with PyVista, NumPy, and VTK installed. The repository includes a sample STL file (mixingpipe.stl) you can use for testing.
+
+Run it with: python stller.py mixingpipe.stl
+
+The interactive controls include:
+Mouse navigation (rotate, zoom, pan)
+Keyboard shortcuts (m: toggle selection, r: region growing, g: new group)
+UI buttons for various selection operations
 
 ## Installation
 
@@ -31,12 +39,15 @@ python stller.py path/to/your/file.stl
 ### Command Line Options
 
 ```
-python stller.py [-h] [--no-edges] [--color COLOR] filepath
+python stller.py [-h] [--no-edges] [--color COLOR] [--export EXPORT] [--only-selected] [--window-size WIDTH HEIGHT] filepath
 ```
 
 - `filepath`: Path to the STL file to visualize
 - `--no-edges`: Hide mesh edges
 - `--color COLOR`: Specify mesh color (default: lightblue)
+- `--export EXPORT`: Export the selected groups to a new STL file
+- `--only-selected`: Export only the selected groups, not the full mesh
+- `--window-size WIDTH HEIGHT`: Window size in pixels (default: 1920 1080)
 - `-h, --help`: Show help message
 
 ### Examples
@@ -56,29 +67,51 @@ Change mesh color:
 python stller.py --color red model.stl
 ```
 
-### Face Selection
+Export selected faces:
+```bash
+python stller.py model.stl --export output.stl --only-selected
+```
 
-The app provides two modes:
+### Face Selection Modes
+
+The app provides multiple selection modes:
+
 - **Movement Mode**: Navigate the 3D view (default)
 - **Selection Mode**: Click faces to select/deselect them
+- **Region Growing Mode**: Click a face to select all connected faces with similar normals
 
 You can toggle between modes using:
 - The selection mode checkbox in the UI
-- Pressing the 'm' key
+- Pressing the 'm' key (toggle selection mode)
+- Pressing the 'r' key (toggle region growing)
 
-Selected faces will be highlighted in red. You can:
-- Click selected faces again to deselect them
-- Use the clear selection button to remove all selections
-- View the count of selected faces in the upper right corner
+### Selection Groups
+
+You can create multiple selection groups, each with a different color:
+- Create a new group with the 'g' key or the "Create New Group" button
+- Switch between groups with the 'n' key or the "Next Group" button
+- Clear the current group with the "Clear Current Group" button
+
+### Export Functionality
+
+You can export your selections to a new STL file:
+- Use the "Export Selection to STL" button during the session
+- Use the `--export` command line option when starting
+
+When exporting, you can choose to:
+- Export only the selected faces (separate solids for each group)
+- Export the full model with selected faces grouped as separate solids
 
 ### Controls
 
 - **Left-click + drag**: Rotate the model
 - **Right-click + drag**: Zoom in/out
 - **Middle-click + drag**: Pan the camera
-- **r key**: Reset camera view
-- **s key**: Take screenshot
+- **c key**: Reset camera view
 - **m key**: Toggle selection mode
+- **r key**: Toggle region growing mode
+- **g key**: Create new selection group
+- **n key**: Switch to next selection group
 
 ## Requirements
 
