@@ -10,6 +10,7 @@ import vtk
 import logging
 import colorsys
 import random
+import time
 
 # Set up basic logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -157,7 +158,7 @@ def generate_distinct_colors(n):
         colors.append(rgb)
     return colors
 
-def display_stl(filepath, show_edges=True, color='lightblue'):
+def display_stl(filepath, show_edges=True, color='lightblue', window_size=(1920, 1080)):
     """
     Read and display an STL file using PyVista
     
@@ -169,6 +170,8 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
         Whether to display mesh edges, default True
     color : str, optional
         Color to use for the mesh, default 'lightblue'
+    window_size : tuple or list, optional
+        Size of the window as (width, height), default (1024, 768)
     """
     # Print information about the file
     print(f"Loading STL file: {filepath}")
@@ -190,8 +193,8 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
     # Ensure we have normals calculated
     mesh.compute_normals(inplace=True)
     
-    # Create a plotter
-    plotter = pv.Plotter()
+    # Create a plotter with specified window size
+    plotter = pv.Plotter(window_size=window_size)
     
     # Add the mesh to the plotter with modern styling
     plotter.add_mesh(
@@ -224,6 +227,58 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
     # Create cell picker for selection
     cell_picker = vtk.vtkCellPicker()
     cell_picker.SetTolerance(0.001)
+    
+    # Interactive export function
+    def export_interactive(value=None):
+        # Ask for file path using a simple text prompt in the UI
+        plotter.add_text(
+            "Enter export path in terminal...",
+            position='lower_right',
+            font_size=14,
+            color='red',
+            name='export_prompt'
+        )
+        plotter.render()
+        
+        # Get export path from user in terminal
+        export_path = input("Enter path to save STL file: ")
+        if not export_path.strip():
+            print("Export cancelled - no path provided")
+            plotter.remove_actor('export_prompt')
+            return
+        
+        # Ask if user wants to export only selected
+        only_selected = input("Export only selected faces? (y/n): ").lower().startswith('y')
+        
+        # Export the selection
+        success = export_selection_groups(
+            filepath, 
+            export_path, 
+            selection_groups, 
+            only_selected=only_selected
+        )
+        
+        if success:
+            plotter.add_text(
+                f"Exported to {export_path}",
+                position='upper_right',
+                font_size=14,
+                color='green',
+                name='export_prompt'
+            )
+        else:
+            plotter.add_text(
+                "Export failed! See terminal for details.",
+                position='upper_right',
+                font_size=14,
+                color='red',
+                name='export_prompt'
+            )
+        
+        # Update display after 2 seconds
+        time.sleep(2)
+        plotter.remove_actor('export_prompt')
+        plotter.render()
     
     # Update the status message
     def update_status_message():
@@ -507,7 +562,7 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
     plotter.add_checkbox_button_widget(
         force_movement_mode,
         value=False,
-        position=(150, 40),
+        position=(350, 40),
         size=30,
         border_size=1,
         color_on='yellow',
@@ -518,9 +573,29 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
     # Add text next to the force movement button
     plotter.add_text(
         "Force Movement Mode",
-        position=(190, 40),
+        position=(400, 40),
         font_size=12,
         name='force_move_text'
+    )
+    
+    # Add Export Button
+    plotter.add_checkbox_button_widget(
+        export_interactive,
+        value=False,
+        position=(10, 220),
+        size=30,
+        border_size=1,
+        color_on='purple',
+        color_off='grey',
+        background_color='white'
+    )
+    
+    # Add text next to the export button
+    plotter.add_text(
+        "Export Selection to STL",
+        position=(50, 220),
+        font_size=12,
+        name='export_text'
     )
     
     # Callback for when a cell is picked
@@ -660,6 +735,8 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
     
     # Add information about controls
     plotter.add_text(
+        "\n"
+        "\n"
         "Controls:\n"
         "Left-click + drag: Rotate\n"
         "Right-click + drag: Zoom\n"
@@ -669,7 +746,7 @@ def display_stl(filepath, show_edges=True, color='lightblue'):
         "g: Create new group\n"
         "n: Next group\n"
         "c: Reset camera",
-        position='lower_left', 
+        position='upper_left', 
         font_size=10,
         name='controls'
     )
@@ -698,6 +775,11 @@ def main():
     parser.add_argument('filepath', help='Path to the STL file to visualize')
     parser.add_argument('--no-edges', action='store_true', help='Hide mesh edges')
     parser.add_argument('--color', default='lightblue', help='Mesh color (default: lightblue)')
+    parser.add_argument('--export', help='Export the selected groups to a new STL file')
+    parser.add_argument('--only-selected', action='store_true', help='Export only the selected groups, not the full mesh')
+    parser.add_argument('--window-size', type=int, nargs=2, default=[1920, 1080], 
+                        metavar=('WIDTH', 'HEIGHT'),
+                        help='Window size in pixels (default: 1920 1080)')
     
     # Parse arguments
     args = parser.parse_args()
@@ -716,7 +798,10 @@ def main():
             sys.exit(0)
     
     # Display the STL file - invert no_edges for show_edges
-    selection_groups = display_stl(args.filepath, show_edges=not args.no_edges, color=args.color)
+    selection_groups = display_stl(args.filepath, 
+                                  show_edges=not args.no_edges, 
+                                  color=args.color,
+                                  window_size=args.window_size)
     
     # Report on selection groups
     if selection_groups:
@@ -726,6 +811,175 @@ def main():
         for i, group in enumerate(selection_groups):
             if len(group) > 0:
                 print(f"Group {i+1}: {len(group)} faces")
+        
+        # If export path is provided, export the selected groups
+        if args.export:
+            if export_selection_groups(args.filepath, args.export, selection_groups, only_selected=args.only_selected):
+                print(f"Successfully exported selection to {args.export}")
+            else:
+                print(f"Failed to export selection")
+
+def export_selection_groups(input_filepath, output_filepath, selection_groups, only_selected=False):
+    """
+    Export the selected face groups to a new STL file.
+    
+    Parameters:
+    -----------
+    input_filepath : str
+        Path to the original STL file
+    output_filepath : str
+        Path to save the new STL file
+    selection_groups : list of sets
+        List of sets of face IDs for each selection group
+    only_selected : bool, optional
+        If True, export only the selected faces, otherwise export the full mesh
+        with selected faces grouped together, default False
+    
+    Returns:
+    --------
+    bool
+        True if export was successful, False otherwise
+    """
+    try:
+        # Read the original mesh
+        original_mesh = pv.read(input_filepath)
+        print(f"Original mesh loaded: {original_mesh.n_cells} faces, {original_mesh.n_points} points")
+        
+        # Get non-empty groups
+        non_empty_groups = [group for group in selection_groups if len(group) > 0]
+        
+        if not non_empty_groups:
+            print("No faces selected, nothing to export")
+            return False
+        
+        # Count total selected faces
+        total_selected = sum(len(group) for group in non_empty_groups)
+        print(f"Total selected faces across all groups: {total_selected}")
+        
+        # Ensure we have a proper file extension
+        if not output_filepath.lower().endswith('.stl'):
+            output_filepath += '.stl'
+        
+        if only_selected:
+            # Create a set of all selected faces
+            all_selected = set()
+            for group in non_empty_groups:
+                all_selected.update(group)
+            
+            # Create a list to hold the individual meshes for each group
+            group_meshes = []
+            for i, group in enumerate(non_empty_groups):
+                mask = np.zeros(original_mesh.n_cells, dtype=bool)
+                mask[list(group)] = True
+                group_mesh = original_mesh.extract_cells(mask)
+                group_meshes.append(("Group " + str(i+1), group_mesh))
+            
+            # Write the selected groups to ASCII STL file with multiple solids
+            with open(output_filepath, 'w') as f:
+                # Write each group as a separate solid
+                for name, mesh in group_meshes:
+                    write_ascii_stl_solid(f, mesh, name)
+            
+            print(f"Exported {len(non_empty_groups)} groups with {total_selected} total faces to {output_filepath}")
+        else:
+            # Create a set of all selected faces
+            all_selected = set()
+            for group in non_empty_groups:
+                all_selected.update(group)
+            
+            # Create a mask for non-selected faces (the body)
+            body_mask = np.ones(original_mesh.n_cells, dtype=bool)
+            body_mask[list(all_selected)] = False
+            
+            # Extract the body mesh
+            body_mesh = None
+            if np.any(body_mask):
+                body_mesh = original_mesh.extract_cells(body_mask)
+            
+            # Create meshes for each group
+            group_meshes = []
+            for i, group in enumerate(non_empty_groups):
+                mask = np.zeros(original_mesh.n_cells, dtype=bool)
+                mask[list(group)] = True
+                group_mesh = original_mesh.extract_cells(mask)
+                group_meshes.append(("Group " + str(i+1), group_mesh))
+            
+            # Write all parts to the ASCII STL file
+            with open(output_filepath, 'w') as f:
+                # First write the body if it exists
+                if body_mesh is not None:
+                    write_ascii_stl_solid(f, body_mesh, "Body")
+                
+                # Then write each group as a separate solid
+                for name, mesh in group_meshes:
+                    write_ascii_stl_solid(f, mesh, name)
+            
+            print(f"Exported full mesh to {output_filepath}")
+            print(f"- Body: {np.sum(body_mask)} faces")
+            for i, group in enumerate(non_empty_groups):
+                print(f"- Group {i+1}: {len(group)} faces")
+        
+        return True
+    
+    except Exception as e:
+        print(f"Error exporting selection: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def write_ascii_stl_solid(file, mesh, name):
+    """
+    Write a mesh to an ASCII STL file as a named solid section.
+    
+    Parameters:
+    -----------
+    file : file object
+        An open file object to write to
+    mesh : pyvista.DataSet
+        The mesh to write
+    name : str
+        The name to give to this solid
+    """
+    # Check if the mesh is PolyData, if not convert it
+    if not isinstance(mesh, pv.PolyData):
+        print(f"Converting {type(mesh).__name__} to PolyData for solid '{name}'")
+        try:
+            # For UnstructuredGrid, we need to extract the surface
+            mesh = mesh.extract_surface()
+        except Exception as e:
+            print(f"Error converting mesh for solid '{name}': {e}")
+            return
+    
+    # Ensure mesh has face normals
+    mesh.compute_normals(cell_normals=True, inplace=True)
+    
+    # Write the solid header
+    file.write(f"solid {name}\n")
+    
+    # Iterate through each face (cell) in the mesh
+    for i in range(mesh.n_cells):
+        # Get the cell
+        cell = mesh.get_cell(i)
+        
+        # Get the points of this cell
+        points = [mesh.points[pid] for pid in cell.point_ids]
+        
+        # Get the face normal
+        normal = mesh.cell_normals[i]
+        
+        # Write the facet
+        file.write(f"  facet normal {normal[0]:.6e} {normal[1]:.6e} {normal[2]:.6e}\n")
+        file.write("    outer loop\n")
+        
+        # Write the vertices
+        for point in points:
+            file.write(f"      vertex {point[0]:.6e} {point[1]:.6e} {point[2]:.6e}\n")
+        
+        file.write("    endloop\n")
+        file.write("  endfacet\n")
+    
+    # Write the solid footer
+    file.write(f"endsolid {name}\n")
 
 if __name__ == "__main__":
     main() 
