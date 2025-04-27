@@ -1,12 +1,12 @@
 # Stller - STL File Viewer
 STLLER is a Python-based STL file viewer with advanced face selection capabilities. The tool allows users to:
 
--View 3D STL models with detailed information (points, faces, area, volume)
--Select faces using two modes:
+1. View 3D STL models with detailed information (points, faces, area, volume)
+2. Select faces using two modes:
     -Direct selection of individual faces
     -Region growing selection (picks connected faces with similar normals)
--Organize selections into multiple color-coded groups
--Export selections to new STL files
+3. Organize selections into multiple color-coded groups
+4. Export selections to new STL files
 
 The tool uses PyVista for 3D visualization and VTK for the underlying mesh operations. It provides both a graphical interface with interactive controls and a command-line interface with various options.
 
@@ -15,9 +15,9 @@ To use STLLER, you need Python 3.7+ with PyVista, NumPy, and VTK installed. The 
 Run it with: python stller.py mixingpipe.stl
 
 The interactive controls include:
-Mouse navigation (rotate, zoom, pan)
-Keyboard shortcuts (m: toggle selection, r: region growing, g: new group)
-UI buttons for various selection operations
+    - Mouse navigation (rotate, zoom, pan)
+    - Keyboard shortcuts (m: toggle selection, r: region growing, g: new group)
+    - UI buttons for various selection operations
 
 ## Installation
 
