@@ -1,12 +1,12 @@
-# Stller - STL File Viewer
-STLLER is a Python-based STL file viewer with advanced face selection capabilities. The tool allows users to:
+# Stller - STL File Viewer/Editor
+STLLER is a Python-based STL file viewer with advanced face selection capabilities to split STL files. It was developed to assist OpenFOAM users with the pre-processing of STL files before meshing. The tool allows users to:
 
 1. View 3D STL models with detailed information (points, faces, area, volume)
 2. Select faces using two modes:\
    -Direct selection of individual faces\
    -Region growing selection (picks connected faces with similar normals)\
-4. Organize selections into multiple color-coded groups
-5. Export selections to new STL files
+3. Organize selections into multiple color-coded groups
+4. Export selections to the same or new STL files to split the STL
 
 The tool uses PyVista for 3D visualization and VTK for the underlying mesh operations. It provides both a graphical interface with interactive controls and a command-line interface with various options.
 
@@ -17,7 +17,6 @@ Run it with: python stller.py mixingpipe.stl
 The interactive controls include:
     - Mouse navigation (rotate, zoom, pan)
     - Keyboard shortcuts (m: toggle selection, r: region growing, g: new group)
-    - UI buttons for various selection operations
 
 ## Installation
 
