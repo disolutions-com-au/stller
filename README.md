@@ -122,4 +122,4 @@ When exporting, you can choose to:
 
 ## License
 
-MIT License 
+GNU General Public License v3.0
