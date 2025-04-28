@@ -203,6 +203,7 @@ def display_stl(filepath, show_edges=True, color='lightblue', window_size=(1920,
         color=color,
         edge_color='black',
         smooth_shading=True,
+        split_sharp_edges=True,
         name='mesh'
     )
     
@@ -423,96 +424,96 @@ def display_stl(filepath, show_edges=True, color='lightblue', window_size=(1920,
         update_status_message()
         plotter.render()
     
-    # Add a button to toggle selection mode
-    plotter.add_checkbox_button_widget(
-        toggle_mode,
-        value=False,
-        position=(10, 40),
-        size=30,
-        border_size=1,
-        color_on='green',
-        color_off='grey',
-        background_color='white'
-    )
+    # # Add a button to toggle selection mode
+    # plotter.add_checkbox_button_widget(
+    #     toggle_mode,
+    #     value=False,
+    #     position=(10, 40),
+    #     size=30,
+    #     border_size=1,
+    #     color_on='green',
+    #     color_off='grey',
+    #     background_color='white'
+    # )
     
-    # Add text next to the checkbox
-    plotter.add_text(
-        "Toggle Selection Mode",
-        position=(50, 40),
-        font_size=12,
-        name='toggle_text'
-    )
+    # # Add text next to the checkbox
+    # plotter.add_text(
+    #     "Toggle Selection Mode",
+    #     position=(50, 40),
+    #     font_size=12,
+    #     name='toggle_text'
+    # )
     
-    # Add a button to toggle region growing
-    plotter.add_checkbox_button_widget(
-        toggle_region_growing,
-        value=False,
-        position=(10, 100),
-        size=30,
-        border_size=1,
-        color_on='blue',
-        color_off='grey',
-        background_color='white'
-    )
+    # # Add a button to toggle region growing
+    # plotter.add_checkbox_button_widget(
+    #     toggle_region_growing,
+    #     value=False,
+    #     position=(10, 100),
+    #     size=30,
+    #     border_size=1,
+    #     color_on='blue',
+    #     color_off='grey',
+    #     background_color='white'
+    # )
     
-    # Add text next to the region growing checkbox
-    plotter.add_text(
-        "Toggle Region Growing",
-        position=(50, 100),
-        font_size=12,
-        name='region_text'
-    )
+    # # Add text next to the region growing checkbox
+    # plotter.add_text(
+    #     "Toggle Region Growing",
+    #     position=(50, 100),
+    #     font_size=12,
+    #     name='region_text'
+    # )
     
-    # Add a button for new selection group
-    plotter.add_checkbox_button_widget(
-        create_new_group,
-        value=False,
-        position=(10, 130),
-        size=30,
-        border_size=1,
-        color_on='orange',
-        color_off='grey',
-        background_color='white'
-    )
+    # # Add a button for new selection group
+    # plotter.add_checkbox_button_widget(
+    #     create_new_group,
+    #     value=False,
+    #     position=(10, 130),
+    #     size=30,
+    #     border_size=1,
+    #     color_on='orange',
+    #     color_off='grey',
+    #     background_color='white'
+    # )
     
-    # Add text next to the new group button
-    plotter.add_text(
-        "Create New Group",
-        position=(50, 130),
-        font_size=12,
-        name='new_group_text'
-    )
+    # # Add text next to the new group button
+    # plotter.add_text(
+    #     "Create New Group",
+    #     position=(50, 130),
+    #     font_size=12,
+    #     name='new_group_text'
+    # )
     
-    # Add a button to switch between groups
-    plotter.add_checkbox_button_widget(
-        next_group,
-        value=False,
-        position=(10, 160),
-        size=30,
-        border_size=1,
-        color_on='purple',
-        color_off='grey',
-        background_color='white'
-    )
+    # # Add a button to switch between groups
+    # plotter.add_checkbox_button_widget(
+    #     next_group,
+    #     value=False,
+    #     position=(10, 160),
+    #     size=30,
+    #     border_size=1,
+    #     color_on='purple',
+    #     color_off='grey',
+    #     background_color='white'
+    # )
     
-    # Add text next to the next group button
-    plotter.add_text(
-        "Next Group",
-        position=(50, 160),
-        font_size=12,
-        name='next_group_text'
-    )
+    # # Add text next to the next group button
+    # plotter.add_text(
+    #     "Next Group",
+    #     position=(50, 160),
+    #     font_size=12,
+    #     name='next_group_text'
+    # )
     
     # Add angle tolerance slider
     def update_angle_tolerance(value):
         nonlocal angle_tolerance
         angle_tolerance = value
-        plotter.add_text(
-            f"Angle Tolerance: {angle_tolerance:.1f}°",
-            position=(50, 190),
-            font_size=12,
-            name='angle_text'
-        )
+        # plotter.add_text(
+        #     f"Angle Tolerance: {angle_tolerance:.1f}°",
+        #     position=(50, 190),
+        #     font_size=12,
+        #     name='angle_text'
+        # )
         print(f"DEBUG: Angle tolerance set to {angle_tolerance:.1f}°")
         update_status_message()
     
@@ -526,77 +527,77 @@ def display_stl(filepath, show_edges=True, color='lightblue', window_size=(1920,
         style='modern'
     )
     
-    # Add a button to clear selection
-    def clear_selection():
-        nonlocal selection_groups, current_group
+    # # Add a button to clear selection
+    # def clear_selection():
+    #     nonlocal selection_groups, current_group
         
-        # Clear only the current group
-        if len(selection_groups) > current_group:
-            selection_groups[current_group] = set()
-            print(f"Cleared selection group {current_group+1}")
+    #     # Clear only the current group
+    #     if len(selection_groups) > current_group:
+    #         selection_groups[current_group] = set()
+    #         print(f"Cleared selection group {current_group+1}")
         
-        update_selection_display()
-        update_status_message()
+    #     update_selection_display()
+    #     update_status_message()
     
-    # Add a clear selection button
-    plotter.add_checkbox_button_widget(
-        clear_selection,
-        value=False,
-        position=(10, 70),
-        size=30,
-        border_size=1,
-        color_on='red',
-        color_off='grey',
-        background_color='white'
-    )
+    # # Add a clear selection button
+    # plotter.add_checkbox_button_widget(
+    #     clear_selection,
+    #     value=False,
+    #     position=(10, 70),
+    #     size=30,
+    #     border_size=1,
+    #     color_on='red',
+    #     color_off='grey',
+    #     background_color='white'
+    # )
     
-    # Add text next to the clear button
-    plotter.add_text(
-        "Clear Current Group",
-        position=(50, 70),
-        font_size=12,
-        name='clear_text'
-    )
+    # # Add text next to the clear button
+    # plotter.add_text(
+    #     "Clear Current Group",
+    #     position=(50, 70),
+    #     font_size=12,
+    #     name='clear_text'
+    # )
     
-    # Add a button for force movement mode
-    plotter.add_checkbox_button_widget(
-        force_movement_mode,
-        value=False,
-        position=(350, 40),
-        size=30,
-        border_size=1,
-        color_on='yellow',
-        color_off='grey',
-        background_color='white'
-    )
+    # # Add a button for force movement mode
+    # plotter.add_checkbox_button_widget(
+    #     force_movement_mode,
+    #     value=False,
+    #     position=(350, 40),
+    #     size=30,
+    #     border_size=1,
+    #     color_on='yellow',
+    #     color_off='grey',
+    #     background_color='white'
+    # )
     
-    # Add text next to the force movement button
-    plotter.add_text(
-        "Force Movement Mode",
-        position=(400, 40),
-        font_size=12,
-        name='force_move_text'
-    )
+    # # Add text next to the force movement button
+    # plotter.add_text(
+    #     "Force Movement Mode",
+    #     position=(400, 40),
+    #     font_size=12,
+    #     name='force_move_text'
+    # )
     
-    # Add Export Button
-    plotter.add_checkbox_button_widget(
-        export_interactive,
-        value=False,
-        position=(10, 220),
-        size=30,
-        border_size=1,
-        color_on='purple',
-        color_off='grey',
-        background_color='white'
-    )
+    # # Add Export Button
+    # plotter.add_checkbox_button_widget(
+    #     export_interactive,
+    #     value=False,
+    #     position=(10, 220),
+    #     size=30,
+    #     border_size=1,
+    #     color_on='purple',
+    #     color_off='grey',
+    #     background_color='white'
+    # )
     
-    # Add text next to the export button
-    plotter.add_text(
-        "Export Selection to STL",
-        position=(50, 220),
-        font_size=12,
-        name='export_text'
-    )
+    # # Add text next to the export button
+    # plotter.add_text(
+    #     "Export Selection to STL",
+    #     position=(50, 220),
+    #     font_size=12,
+    #     name='export_text'
+    # )
     
     # Callback for when a cell is picked
     def cell_picked(cell_id):
