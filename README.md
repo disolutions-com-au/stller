@@ -1,5 +1,5 @@
 # Stller - STL File Viewer/Editor
-STLLER is a Python-based STL file viewer with advanced face selection capabilities to split STL files. It was developed to assist OpenFOAM users with the pre-processing of STL files before meshing. The tool allows users to:
+STLLER (pronounced:Steller) is a Python-based STL file viewer with advanced face selection capabilities to split STL files. It was developed to assist OpenFOAM users with the pre-processing of STL files before meshing. The tool allows users to:
 
 1. View 3D STL models with detailed information (points, faces, area, volume)
 2. Select faces using two modes:\
