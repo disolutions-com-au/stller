@@ -2,11 +2,11 @@
 STLLER is a Python-based STL file viewer with advanced face selection capabilities. The tool allows users to:
 
 1. View 3D STL models with detailed information (points, faces, area, volume)
-2. Select faces using two modes:
-   -Direct selection of individual faces
-   -Region growing selection (picks connected faces with similar normals)
-3. Organize selections into multiple color-coded groups
-4. Export selections to new STL files
+2. Select faces using two modes:\
+   -Direct selection of individual faces\
+   -Region growing selection (picks connected faces with similar normals)\
+4. Organize selections into multiple color-coded groups
+5. Export selections to new STL files
 
 The tool uses PyVista for 3D visualization and VTK for the underlying mesh operations. It provides both a graphical interface with interactive controls and a command-line interface with various options.
 
