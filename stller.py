@@ -579,25 +579,25 @@ def display_stl(filepath, show_edges=True, color='lightblue', window_size=(1920,
     #     name='force_move_text'
     # )
     
-    # # Add Export Button
-    # plotter.add_checkbox_button_widget(
-    #     export_interactive,
-    #     value=False,
-    #     position=(10, 220),
-    #     size=30,
-    #     border_size=1,
-    #     color_on='purple',
-    #     color_off='grey',
-    #     background_color='white'
-    # )
+     # Add Export Button
+     plotter.add_checkbox_button_widget(
+         export_interactive,
+         value=False,
+         position=(10, 150),
+         size=30,
+         border_size=1,
+         color_on='purple',
+         color_off='grey',
+         background_color='white'
+     )
     
-    # # Add text next to the export button
-    # plotter.add_text(
-    #     "Export Selection to STL",
-    #     position=(50, 220),
-    #     font_size=12,
-    #     name='export_text'
-    # )
+     # Add text next to the export button
+     plotter.add_text(
+         "Export Selection to STL",
+         position=(50, 150),
+         font_size=12,
+         name='export_text'
+     )
     
     # Callback for when a cell is picked
     def cell_picked(cell_id):
